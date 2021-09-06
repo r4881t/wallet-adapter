@@ -10,12 +10,12 @@ import {
     getSlopeWallet,
     getSolflareWallet,
     getSolletWallet,
-    getSolongWallet,
-    getTorusWallet,
+    getSolongWallet
 } from '@solana/wallet-adapter-wallets';
 import { clusterApiUrl } from '@solana/web3.js';
 import React, { FC, useCallback, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
+import MintNFT from './MintNFT';
 import Navigation from './Navigation';
 import Notification from './Notification';
 
@@ -29,11 +29,6 @@ const Wallet: FC = () => {
         () => [
             getPhantomWallet(),
             getSolflareWallet(),
-            getTorusWallet({
-                options: {
-                    clientId: 'BOM5Cl7PXgE9Ylq1Z1tqzhpydY0RVr8k90QQ85N7AKI5QGSrr9iDC-3rvmy0K_hF0JfpLMiXoDhta68JwcxS1LQ',
-                },
-            }),
             getLedgerWallet(),
             getSolletWallet({ network }),
             getSolongWallet(),
@@ -62,6 +57,7 @@ const Wallet: FC = () => {
                 <WalletModalProvider>
                     <Navigation />
                 </WalletModalProvider>
+                <MintNFT />
                 <Toaster position="bottom-left" reverseOrder={false} />
             </WalletProvider>
         </ConnectionProvider>

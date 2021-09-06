@@ -185,7 +185,7 @@ const MintNFT: FC = () => {
 				const mintToInstruction = await splToken.Token.createMintToInstruction(
 					tokenProgramId,			// programId, SPL Token program account
 					mintAccount.publicKey,		// mint, Public key of the mint
-					accountInfo.publicKey,		// dest, Public key of the account to mint to
+					accountInfo.mint,		// dest, Public key of the account to mint to
 					publicKey,			// authority, The mint authority
 					[],				// multiSigners, Signing accounts if `authority` is a multiSig
 					1				// amount, Amount to mint

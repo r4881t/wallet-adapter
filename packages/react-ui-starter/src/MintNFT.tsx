@@ -85,12 +85,16 @@ const MintNFT: FC = () => {
 			const signature = await sendTransaction(tx, connection);
 			console.log(`signature`, signature);
 			if (signature) {
-			// Confirm the signed TX
-			const txAddress = await connection.confirmTransaction(
-				signature,
-				"confirmed"
-			);
-			console.log(txAddress);
+				// Confirm the signed TX
+				const txAddress = await connection.confirmTransaction(
+					signature,
+					"confirmed"
+				);
+				console.log(txAddress);
+			}
+			else {
+				console.log("Signature NOT found");
+				return;
 			}
 
 			// step 2.
@@ -98,7 +102,7 @@ const MintNFT: FC = () => {
 				assosiatedTokenProgramId,	// associatedProgramId, SPL Associated Token program account
 				tokenProgramId,			// programId, SPL Token program account
 				mintAccount.publicKey,		// mint, Token mint account
-				publicKey,			// owner, Owner of the new account
+				publicKey,			// owner, Owner .toString()of the new account
 			);
 
 			let info = await connection.getAccountInfo(associatedAddress);
@@ -128,6 +132,9 @@ const MintNFT: FC = () => {
 							"confirmed"
 						);
 						console.log(txAddress);
+					} else {
+						console.log("Signature not found 2.");
+						return;
 					}
 
 			}
@@ -180,12 +187,12 @@ const MintNFT: FC = () => {
 				}
 
 				console.log("Account Info");
-				console.log(accountInfo);
+				console.log(accountInfo.mint.toString());
 
 				const mintToInstruction = await splToken.Token.createMintToInstruction(
 					tokenProgramId,			// programId, SPL Token program account
 					mintAccount.publicKey,		// mint, Public key of the mint
-					accountInfo.mint,		// dest, Public key of the account to mint to
+					associatedAddress,		// dest, Public key of the account to mint to
 					publicKey,			// authority, The mint authority
 					[],				// multiSigners, Signing accounts if `authority` is a multiSig
 					1				// amount, Amount to mint
@@ -195,7 +202,7 @@ const MintNFT: FC = () => {
 				tx.add(mintToInstruction);
 				tx.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
 				tx.feePayer = publicKey;
-				//tx.partialSign(mintAccount);
+				//tx.partialSign(associatedAddress);
 				console.log(`3tx`, tx);
 				const signature = await sendTransaction(tx, connection);
 				if (signature) {
@@ -205,9 +212,37 @@ const MintNFT: FC = () => {
 						"confirmed"
 					);
 					console.log(txAddress);
+				} else {
+					console.log("Signature not found 3");
+					return;
 				}
-				
 
+				const freezeMintInstruction = await splToken.Token.createSetAuthorityInstruction(
+					tokenProgramId,			// programId, SPL Token program account
+					mintAccount.publicKey,		// account, Public key of the account
+					null,				// newAuthority, New authority of the account
+					'MintTokens',			// authorityType, Type of authority to set
+					publicKey,			// currentAuthority, Current authority of the specified type
+					[],				// multiSigners, Signing accounts if `currentAuthority` is a multiSig
+				);
+				const txn = new Transaction();
+				txn.add(freezeMintInstruction);
+				txn.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
+				txn.feePayer = publicKey;
+				//tx.partialSign(mintAccount);
+				console.log(`4tx`, txn);
+				const signatur = await sendTransaction(txn, connection);
+				if (signatur) {
+					// Confirm the signed TX
+					const txAddress = await connection.confirmTransaction(
+						signatur,
+						"confirmed"
+					);
+					console.log(txAddress);
+				} else {
+					console.log("Signature not found 2.");
+					return;
+				}
 
 			}
 			else {

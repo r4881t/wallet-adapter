@@ -33,6 +33,11 @@ const MintNFT: FC = () => {
 				"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
 			);
 
+			// Associated Token ID on testnet, mainnet, devnet
+			const assosiatedTokenProgramId = new PublicKey(
+				"ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+			);
+
 			// Needed balance for mintAccount to be RentExempt
 			const balanceNeeded = await splToken.Token.getMinBalanceRentForExemptMint(
 				connection
@@ -87,47 +92,134 @@ const MintNFT: FC = () => {
 			);
 			console.log(txAddress);
 			}
+
+			// step 2.
+			const associatedAddress = await splToken.Token.getAssociatedTokenAddress(
+				assosiatedTokenProgramId,	// associatedProgramId, SPL Associated Token program account
+				tokenProgramId,			// programId, SPL Token program account
+				mintAccount.publicKey,		// mint, Token mint account
+				publicKey,			// owner, Owner of the new account
+			);
+
+			let info = await connection.getAccountInfo(associatedAddress);
+			if (info == null || 
+				!info.owner.equals(tokenProgramId) || 
+				(info.data.length !== splToken.AccountLayout.span)) {
+					const createAssociatedTokenAccInstruction = splToken.Token.createAssociatedTokenAccountInstruction(
+						assosiatedTokenProgramId,
+						tokenProgramId,
+						mintAccount.publicKey,
+						associatedAddress,
+						publicKey,
+						publicKey,
+					);
+
+					const tx = new Transaction();
+					tx.add(createAssociatedTokenAccInstruction);
+					tx.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
+					tx.feePayer = publicKey;
+					//tx.partialSign(mintAccount);
+					console.log(`2tx`, tx);
+					const signature = await sendTransaction(tx, connection);
+					if (signature) {
+						// Confirm the signed TX
+						const txAddress = await connection.confirmTransaction(
+							signature,
+							"confirmed"
+						);
+						console.log(txAddress);
+					}
+
+			}
+
+			// fetch the info again
+			info = await connection.getAccountInfo(associatedAddress);
+
+			if (info != null ){
+				console.log("info");
+				console.log(info);
+
+				const data = Buffer.from(info.data);
+				const accountInfo = splToken.AccountLayout.decode(data);
+				accountInfo.address = associatedAddress;
+				accountInfo.mint = new PublicKey(accountInfo.mint);
+				accountInfo.owner = new PublicKey(accountInfo.owner);
+				accountInfo.amount = splToken.u64.fromBuffer(accountInfo.amount);
+
+				if (accountInfo.delegateOption === 0) {
+					accountInfo.delegate = null;
+					accountInfo.delegatedAmount = new splToken.u64(0);
+				} else {
+					accountInfo.delegate = new PublicKey(accountInfo.delegate);
+					accountInfo.delegatedAmount = splToken.u64.fromBuffer(accountInfo.delegatedAmount);
+				}
+					
+				accountInfo.isInitialized = accountInfo.state !== 0;
+				accountInfo.isFrozen = accountInfo.state === 2;
+					
+				if (accountInfo.isNativeOption === 1) {
+					accountInfo.rentExemptReserve = splToken.u64.fromBuffer(accountInfo.isNative);
+					accountInfo.isNative = true;
+				} else {
+					accountInfo.rentExemptReserve = null;
+					accountInfo.isNative = false;
+				}
+					
+				if (accountInfo.closeAuthorityOption === 0) {
+					accountInfo.closeAuthority = null;
+				} else {
+					accountInfo.closeAuthority = new PublicKey(accountInfo.closeAuthority);
+				}
+					
+				if (!accountInfo.mint.equals(mintAccount.publicKey)) {
+					throw new Error(
+						`Invalid account mint: ${JSON.stringify(
+						accountInfo.mint,
+						)} !== ${JSON.stringify(mintAccount.publicKey)}`,
+					);
+				}
+
+				console.log("Account Info");
+				console.log(accountInfo);
+
+				const mintToInstruction = await splToken.Token.createMintToInstruction(
+					tokenProgramId,			// programId, SPL Token program account
+					mintAccount.publicKey,		// mint, Public key of the mint
+					accountInfo.publicKey,		// dest, Public key of the account to mint to
+					publicKey,			// authority, The mint authority
+					[],				// multiSigners, Signing accounts if `authority` is a multiSig
+					1				// amount, Amount to mint
+				);
+
+				const tx = new Transaction();
+				tx.add(mintToInstruction);
+				tx.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
+				tx.feePayer = publicKey;
+				//tx.partialSign(mintAccount);
+				console.log(`3tx`, tx);
+				const signature = await sendTransaction(tx, connection);
+				if (signature) {
+					// Confirm the signed TX
+					const txAddress = await connection.confirmTransaction(
+						signature,
+						"confirmed"
+					);
+					console.log(txAddress);
+				}
+				
+
+
+			}
+			else {
+				console.log("Info is again null");
+			}
+
 		}
 		catch (err) {
 			console.error(err);
 		}
 
 
-		// const mintAuthority = new PublicKey("36nU9v2uQpVufZ2A9JPg2rxAkdZ4BpRzdNYvSFB7S78v");
-		
-		// //create new token mint
-		// let mint = await splToken.Token.createMint(
-		// 	connection,
-		// 	wallet,
-		// 	mintAuthority,
-		// 	mintAuthority,
-		// 	0,
-		// 	splToken.TOKEN_PROGRAM_ID,
-		// );
-
-		// let fromTokenAccount = await mint.getOrCreateAssociatedAccountInfo(
-		// 	publicKey,
-		// );
-	
-		// let signature: TransactionSignature = '';
-		// try {
-		//     const transaction = new Transaction().add(
-		// 	SystemProgram.transfer({
-		// 	    fromPubkey: publicKey,
-		// 	    toPubkey: Keypair.generate().publicKey,
-		// 	    lamports: 1,
-		// 	})
-		//     );
-	
-		//     signature = await sendTransaction(transaction, connection);
-		//     console.log('info', 'Transaction sent:', signature);
-	
-		//     await connection.confirmTransaction(signature, 'processed');
-		//     console.log('success', 'Transaction successful!', signature);
-		// } catch (error: any) {
-		//     console.log('error', `Transaction failed! ${error?.message}`, signature);
-		//     return;
-		// }
 	    }, [connection, publicKey, adapter, wallet, signTransaction, sendTransaction]);
 
 	return (

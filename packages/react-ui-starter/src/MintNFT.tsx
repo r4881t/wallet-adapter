@@ -225,8 +225,17 @@ const MintNFT: FC = () => {
 					publicKey,			// currentAuthority, Current authority of the specified type
 					[],				// multiSigners, Signing accounts if `currentAuthority` is a multiSig
 				);
+				const removeMintAuthorityInstruction = await splToken.Token.createSetAuthorityInstruction(
+					tokenProgramId,			// programId, SPL Token program account
+					mintAccount.publicKey,		// account, Public key of the account
+					null,				// newAuthority, New authority of the account
+					'FreezeAccount',			// authorityType, Type of authority to set
+					publicKey,			// currentAuthority, Current authority of the specified type
+					[],				// multiSigners, Signing accounts if `currentAuthority` is a multiSig
+				); 
 				const txn = new Transaction();
 				txn.add(freezeMintInstruction);
+				txn.add(removeMintAuthorityInstruction);
 				txn.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
 				txn.feePayer = publicKey;
 				//tx.partialSign(mintAccount);
